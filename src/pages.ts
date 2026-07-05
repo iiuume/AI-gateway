@@ -232,7 +232,7 @@ ${H('登录')}
     <div id="er" class="al al-e hd mb-2"><i class="fas fa-exclamation-circle"></i><span id="em"></span></div>
     <div class="fg m-16-0"><label><i class="fas fa-user"></i> 用户名</label><input type="text" class="input-mt-6" id="u" placeholder="请输入用户名"></div>
     <div class="fg m-16-0"><label><i class="fas fa-lock"></i> 密码</label><input type="password" class="input-mt-6" id="p" placeholder="请输入密码" onkeydown="if(event.key==='Enter')l()"></div>
-    <button class="btn btn-p fw jc-c" style="padding:7px;"><i class="fas fa-sign-in-alt"></i> 登录</button>
+    <button class="btn btn-p fw jc-c" style="padding:7px;" onclick="l()"><i class="fas fa-sign-in-alt"></i> 登录</button>
   </div>
 </div>
 <script>
