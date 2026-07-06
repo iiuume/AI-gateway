@@ -154,9 +154,10 @@ Authorization: Bearer sk_cf_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
    - 读取该提供商下每个 Key 的历史健康状态（基于 KV 持久化）
    - **健康 Key**（无失败记录）：Fisher-Yates 洗牌后优先使用
    - **不健康 Key**（有失败记录，< 3 次）：追加到队列末尾
-   - **降权 Key**（连续失败 >= 3 次）：排除，不参与轮询
+   - **降权 Key**（连续失败 >= 3 次）：进入冷却排除，**1 小时后自动恢复试用**
+   - **试用 Key**（冷却到期）：追加到不健康 Key 之后，限试一次
    - 仅有 1 个 Key 时跳过所有健康检查
-5. 按排序后的顺序依次尝试；遇 `401/403/429/5xx` 或网络错误时标记该 Key 失败并切换下一个，成功时重置该 Key 的健康状态
+5. 按排序后的顺序依次尝试；遇 `401/403/429/5xx` 或网络错误时标记该 Key 失败（`failures++`、`demotedAt` 刷新）并切换下一个，成功时重置该 Key 的健康状态
 
 **Key 健康状态**存储在 KV 中（`key:health:{providerId}`），每次请求后更新，仅保留有失败记录的 Key。
 
@@ -331,6 +332,75 @@ Session 过期返回 `401`：
 ```
 
 > `data.success` 表示实际连接是否成功；外层 `success` 固定为 `true` 表示测试流程本身执行完成。
+
+---
+
+#### POST /admin/api/test-key
+
+测试指定 API Key 的连接是否可用（用于"添加新提供商"表单，无需提供商已保存）。通过服务端代理请求上游 `/models` 端点，避免浏览器跨域限制。
+
+**请求体**:
+```json
+{
+  "url": "https://api.deepseek.com",
+  "apiKey": "sk-xxx",
+  "apiType": "openai"
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `url` | ✅ | API 基础地址，尾部 `/` 会被自动去除 |
+| `apiKey` | ✅ | 待测试的 API Key |
+| `apiType` | ❌ | `openai`（默认）或 `anthropic` |
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "statusCode": 200,
+    "data": { "object": "list", "data": [...] }
+  }
+}
+```
+
+> 连接成功时 `data.data` 包含上游返回的模型列表；连接失败时 `data.success` 为 `false`，`statusCode` 为 `0`（网络错误）或具体 HTTP 状态码。
+
+---
+
+#### POST /admin/api/test-model
+
+测试指定模型的连接是否可用（用于"添加新提供商"表单）。通过服务端代理请求上游 `/chat/completions` 或 `/messages` 端点，避免浏览器跨域限制。
+
+**请求体**:
+```json
+{
+  "url": "https://api.deepseek.com",
+  "apiKey": "sk-xxx",
+  "apiType": "openai",
+  "model": "deepseek-chat"
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `url` | ✅ | API 基础地址 |
+| `apiKey` | ✅ | 待测试的 API Key |
+| `apiType` | ❌ | 决定使用 `/chat/completions`（openai）或 `/messages`（anthropic） |
+| `model` | ✅ | 模型 ID |
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "statusCode": 200
+  }
+}
+```
 
 ---
 

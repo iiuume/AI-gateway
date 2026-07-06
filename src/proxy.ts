@@ -1,6 +1,6 @@
 import { Context } from 'hono'
 import { getProvider, getProviders } from './storage'
-import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS } from './config'
+import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS, KEY_HEALTH_MAX_FAILURES } from './config'
 import type { Env, ProxyRequestBody } from './types'
 
 // ===== Key 健康状态类型和辅助函数 =====
@@ -175,7 +175,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
     } else {
       for (let i = 0; i < enabledKeys.length; i++) {
         const h = healthData[enabledKeys[i].key]
-        if (h && h.failures >= 3) {
+        if (h && h.failures >= KEY_HEALTH_MAX_FAILURES) {
           // 兼容旧数据：无 demotedAt 视为现在刚降权，统一走冷却逻辑
           if (!h.demotedAt) {
             h.demotedAt = Date.now()
@@ -245,12 +245,18 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           })
         }
 
-        // 401/403/429/5xx 尝试下一个 key（标记失败）
-        if (response.status === 401 || response.status === 403 || response.status === 429 || response.status >= 500) {
+        // 429 限流：跳过当前 key，不标记失败
+        if (response.status === 429) {
+          lastError = response
+          continue
+        }
+
+        // 401/403/5xx 尝试下一个 key（标记失败）
+        if (response.status === 401 || response.status === 403 || response.status >= 500) {
           const h = healthData[apiKey] || { failures: 0, lastFailed: false }
           h.failures++
           h.lastFailed = true
-          if (h.failures >= 3) {
+          if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
             h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
           }
           healthData[apiKey] = h
@@ -268,7 +274,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         const h = healthData[apiKey] || { failures: 0, lastFailed: false }
         h.failures++
         h.lastFailed = true
-        if (h.failures >= 3) {
+        if (h.failures >= KEY_HEALTH_MAX_FAILURES) {
           h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
         }
         healthData[apiKey] = h

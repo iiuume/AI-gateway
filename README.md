@@ -5,12 +5,13 @@
 ## 功能与特性
 
 - **统一 API 接口** — 所有 AI 提供商通过 `https://你的域名/v1/` 访问，兼容 OpenAI / Anthropic 协议
-- **多 Key 轮询 + 健康检查** — 每个提供商可配置多个 API Key，请求随机打乱；失败 Key 自动降权，连续失败 3 次后排除轮询
+- **多 Key 轮询 + 健康检查** — 每个提供商可配置多个 API Key，请求随机打乱；失败 Key 自动降权，连续失败 5 次后进入冷却
+- **Key 自动恢复** — 降权 Key 冷却 5 分钟后自动获得一次试用机会，成功则恢复权重，失败则重新冷却
 - **多提供商管理** — 内置 DeepSeek / OpenAI / Anthropic / Gemini，支持自定义添加
 - **两级启用控制** — 提供商级别 + 模型级别的启用/禁用
 - **转发 Key 认证** — 生成 `sk_cf_*` 格式的 API Key，支持有效期管理
-- **模型连接测试** — 管理后台手动测试模型是否可连接
-- **管理后台** — 现代化卡片式 UI，移动端自适应
+- **模型连接测试** — 管理后台手动测试模型是否可连接（通过服务端代理，无跨域限制）
+- **管理后台** — 卡片式 UI，移动端自适应，无需前端构建
 
 ## 技术栈
 
@@ -61,26 +62,28 @@ npm run dev
 
 ## 使用方法
 
-- **API BASE URL**：`https://你的域名/v1/`
+- **API BASE URL**：`https://你的域名/v1`
 - **API KEY**：在管理后台手动生成，格式为：`sk_cf_<KEY>`
-- **模型ID**：提供商ID/模型ID，提供商ID在设置中自定义，如：
-  - `deepseek/deepseek-v4/flash`
-  - `openai/gpt-5.5`
-  - `anthropic/claude-opus-4-8`
+- **模型ID**：`提供商ID/模型ID`，提供商ID在设置中自定义，如：
+  - `deepseek/deepseek-chat`
+  - `openai/gpt-4o`
+  - `anthropic/claude-sonnet-4-20250514`
 
 ## 项目结构
 
 ```
 ai-gateway/
 ├── src/
-│   ├── index.ts     # 入口，路由注册
-│   ├── types.ts     # 类型定义
-│   ├── config.ts    # 默认配置
-│   ├── storage.ts   # KV 存储层
-│   ├── auth.ts      # 认证系统
-│   ├── proxy.ts     # API 转发核心（Key 轮询 + 健康检查）
-│   ├── admin.ts     # 管理 API
-│   └── pages.ts     # 前端页面模板
+│   ├── index.ts       # 入口，路由注册
+│   ├── types.ts       # 类型定义
+│   ├── config.ts      # 默认配置
+│   ├── storage.ts     # KV 存储层
+│   ├── auth.ts        # 认证系统
+│   ├── proxy.ts       # API 转发核心（Key 轮询 + 健康检查 + 自动恢复）
+│   ├── admin.ts       # 管理 API（含服务端 Key/模型测试代理）
+│   ├── pages.ts       # 前端页面模板
+│   ├── pages.css.ts   # 样式
+│   └── shared.js.ts   # 共享 JS 工具函数
 ├── wrangler.toml
 ├── package.json
 ├── tsconfig.json
