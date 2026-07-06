@@ -11,6 +11,8 @@ import {
   handleUpdateProvider,
   handleDeleteProvider,
   handleTestModel,
+  handleTestKeyNew,
+  handleTestModelNew,
   handleGetProxyKeys,
   handleCreateProxyKey,
   handleUpdateProxyKey,
@@ -66,6 +68,8 @@ app.post('/admin/api/providers', handleCreateProvider)
 app.put('/admin/api/providers/:id', handleUpdateProvider)
 app.delete('/admin/api/providers/:id', handleDeleteProvider)
 app.post('/admin/api/providers/:id/test-model', handleTestModel)
+app.post('/admin/api/test-key', handleTestKeyNew)
+app.post('/admin/api/test-model', handleTestModelNew)
 
 // 转发 Key 管理
 app.get('/admin/api/proxy-keys', handleGetProxyKeys)
@@ -75,7 +79,6 @@ app.patch('/admin/api/proxy-keys/:id', handleUpdateProxyKey)
 
 // ===== API 转发路由（需转发 Key 验证） =====
 app.use('/v1/*', proxyKeyAuthMiddleware)
-
 app.get('/v1/models', handleModels)
 app.all('/v1/*', handleProxy)
 

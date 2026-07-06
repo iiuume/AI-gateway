@@ -24,23 +24,32 @@ function showResult(el, success, msg) {
 // ── API 请求函数 ──
 async function testKeyConnection(url, apiType, key) {
   try {
-    var r = await fetch(normalizeUrl(url) + '/models', {
-      method: 'GET', headers: buildAuthHeaders(apiType, key)
+    var r = await fetch('/admin/api/test-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url, apiKey: key, apiType: apiType })
     })
-    return { success: r.ok, status: r.status, data: r.ok ? await r.json().catch(function() { return null }) : null }
+    var d = await r.json()
+    if (d.success && d.data) {
+      return { success: d.data.success, status: d.data.statusCode, data: d.data.data }
+    }
+    return { success: false, status: 0, data: null }
   } catch (e) {
     return { success: false, status: 0, data: null }
   }
 }
 async function testModelConnection(url, apiType, key, modelId) {
   try {
-    var endpoint = apiType === 'anthropic' ? 'messages' : 'chat/completions'
-    var r = await fetch(normalizeUrl(url) + '/' + endpoint, {
+    var r = await fetch('/admin/api/test-model', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(apiType, key) },
-      body: JSON.stringify({ model: modelId, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url, apiKey: key, apiType: apiType, model: modelId })
     })
-    return { success: r.ok, status: r.status }
+    var d = await r.json()
+    if (d.success && d.data) {
+      return { success: d.data.success, status: d.data.statusCode }
+    }
+    return { success: false, status: 0 }
   } catch (e) {
     return { success: false, status: 0 }
   }

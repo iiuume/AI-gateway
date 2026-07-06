@@ -169,6 +169,73 @@ export async function handleTestModel(c: Context<{ Bindings: Env }>) {
   })
 }
 
+// ===== Key / 模型连通性测试（通过服务端代理，避免 CORS） =====
+
+function buildAuthHeaders(apiKey: string, apiType?: string): Record<string, string> {
+  if (apiType === 'anthropic') {
+    return { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+  }
+  return { 'Authorization': `Bearer ${apiKey}` }
+}
+
+export async function handleTestKeyNew(c: Context<{ Bindings: Env }>) {
+  const { url, apiKey, apiType } = await c.req.json<{ url: string; apiKey: string; apiType?: string }>()
+  if (!url || !apiKey) {
+    return c.json<ApiResponse>({ success: false, message: 'url 和 apiKey 为必填项' }, 400)
+  }
+
+  const cleanBase = url.replace(/\/$/, '')
+  try {
+    const response = await fetch(`${cleanBase}/models`, {
+      method: 'GET', headers: buildAuthHeaders(apiKey, apiType), signal: AbortSignal.timeout(15000),
+    })
+
+    let data: unknown = null
+    if (response.ok) {
+      try { data = await response.json() } catch { /* ignore */ }
+    }
+
+    return c.json<ApiResponse>({
+      success: true,
+      data: { success: response.ok, statusCode: response.status, data },
+    })
+  } catch (err) {
+    return c.json<ApiResponse>({
+      success: true,
+      data: { success: false, statusCode: 0, message: (err as Error).message || '连接失败' },
+    })
+  }
+}
+
+export async function handleTestModelNew(c: Context<{ Bindings: Env }>) {
+  const { url, apiKey, apiType, model } = await c.req.json<{ url: string; apiKey: string; apiType?: string; model: string }>()
+  if (!url || !apiKey || !model) {
+    return c.json<ApiResponse>({ success: false, message: 'url、apiKey、model 为必填项' }, 400)
+  }
+
+  const cleanBase = url.replace(/\/$/, '')
+  const endpoint = apiType === 'anthropic' ? 'messages' : 'chat/completions'
+
+  try {
+    const response = await fetch(`${cleanBase}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(apiKey, apiType) },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
+      signal: AbortSignal.timeout(15000),
+    })
+
+    return c.json<ApiResponse>({
+      success: true,
+      data: { success: response.ok, statusCode: response.status },
+    })
+  } catch (err) {
+    return c.json<ApiResponse>({
+      success: true,
+      data: { success: false, statusCode: 0, message: (err as Error).message || '连接失败' },
+    })
+  }
+}
+
 // ===== 转发 Key 管理 =====
 
 export async function handleGetProxyKeys(c: Context<{ Bindings: Env }>) {
