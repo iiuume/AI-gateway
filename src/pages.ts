@@ -74,7 +74,7 @@ ${H('首页')}
   <div class="g2">
     ${providers.filter(p=>p.enabled).map(p=>`
       <div class="card p-14">
-        <div class="fc jc-sb" style="display: flex; justify-content: space-between;">
+        <div class="fc jc-sb" style="margin-bottom:8px;display: flex; justify-content: space-between;">
           <h3 style="font-size:.9rem;font-weight:600;">
             <i class="fas fa-server c-p" style="margin-right:5px;"></i>${p.name} 
             <span class="c-muted fw-4 fs-65" style="padding:1px 5px;border-radius:4px;border:1px solid var(--c-border-dark);vertical-align:middle;">${(p.apiType||'openai')==='anthropic'?'Anthropic':'OpenAI'}</span>
