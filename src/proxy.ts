@@ -1,6 +1,6 @@
 import { Context } from 'hono'
 import { getProvider, getProviders } from './storage'
-import { KV_KEYS } from './config'
+import { KV_KEYS, KEY_HEALTH_COOLDOWN_MS } from './config'
 import type { Env, ProxyRequestBody } from './types'
 
 // ===== Key 健康状态类型和辅助函数 =====
@@ -8,6 +8,7 @@ import type { Env, ProxyRequestBody } from './types'
 interface KeyHealth {
   failures: number
   lastFailed: boolean
+  demotedAt?: number  // 首次达到降权阈值的时间戳 (Date.now())
 }
 type HealthMap = Record<string, KeyHealth>
 
@@ -161,10 +162,11 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
     const cleanBase = provider.baseUrl.replace(/\/$/, '')
     const forwardUrl = `${cleanBase}/${subPath}${url.search}`
 
-    // 按健康状态排序 key：健康→洗牌，不健康→末尾，连续失败3次→降权排除
+    // 按健康状态排序 key：健康→洗牌，不健康→末尾，冷却到期→试用，连续失败3次→降权排除
     const healthData = await readHealth(c.env, providerId)
     const healthy: number[] = []
     const unhealthy: number[] = []
+    const probation: number[] = []
     const demoted: number[] = []
 
     if (enabledKeys.length === 1) {
@@ -174,7 +176,15 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       for (let i = 0; i < enabledKeys.length; i++) {
         const h = healthData[enabledKeys[i].key]
         if (h && h.failures >= 3) {
-          demoted.push(i)
+          // 兼容旧数据：无 demotedAt 视为现在刚降权，统一走冷却逻辑
+          if (!h.demotedAt) {
+            h.demotedAt = Date.now()
+          }
+          if (Date.now() - h.demotedAt >= KEY_HEALTH_COOLDOWN_MS) {
+            probation.push(i)  // 冷却到期，进入试用组
+          } else {
+            demoted.push(i)    // 仍在冷却，继续保持降权
+          }
         } else if (h && h.lastFailed) {
           unhealthy.push(i)
         } else {
@@ -189,10 +199,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       [healthy[i], healthy[j]] = [healthy[j], healthy[i]]
     }
 
-    const keyOrder = [...healthy, ...unhealthy]
-    // 有降权 key 时记录一条日志
-    if (demoted.length > 0) {
-      console.log(`[proxy] ${providerId}: ${demoted.length} key(s) demoted (>=3 consecutive failures)`)
+    const keyOrder = [...healthy, ...unhealthy, ...probation]
+    if (demoted.length > 0 || probation.length > 0) {
+      console.log(`[proxy] ${providerId}: ${demoted.length} key(s) demoted, ${probation.length} key(s) on probation (cooldown expired)`)
     }
 
     let lastError: Response | null = null
@@ -241,6 +250,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           const h = healthData[apiKey] || { failures: 0, lastFailed: false }
           h.failures++
           h.lastFailed = true
+          if (h.failures >= 3) {
+            h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
+          }
           healthData[apiKey] = h
           healthUpdated = true
           lastError = response
@@ -256,6 +268,9 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         const h = healthData[apiKey] || { failures: 0, lastFailed: false }
         h.failures++
         h.lastFailed = true
+        if (h.failures >= 3) {
+          h.demotedAt = Date.now()  // 达到降权阈值或试用失败，重置冷却计时
+        }
         healthData[apiKey] = h
         healthUpdated = true
         lastError = new Response(JSON.stringify({

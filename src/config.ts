@@ -15,6 +15,9 @@ export const SESSION_TTL = 7 * 24 * 60 * 60
 
 export const PROXY_KEY_PREFIX = 'sk_cf_'
 
+// Key 降权后自动恢复的冷却时间 (毫秒)，默认 1 小时
+export const KEY_HEALTH_COOLDOWN_MS = 60 * 60 * 1000
+
 export const KV_KEYS = {
   PROVIDERS: 'providers',
   PROXY_KEYS: 'proxy:keys',
