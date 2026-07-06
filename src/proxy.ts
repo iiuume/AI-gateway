@@ -200,6 +200,13 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
     }
 
     const keyOrder = [...healthy, ...unhealthy, ...probation]
+
+    // 所有 key 都在冷却中时，降级尝试 demoted key（修复旧数据缺失 demotedAt 的死循环）
+    if (keyOrder.length === 0 && demoted.length > 0) {
+      keyOrder.push(...demoted)
+      console.log(`[proxy] ${providerId}: all keys demoted, falling back to ${demoted.length} key(s)`)
+    }
+
     if (demoted.length > 0 || probation.length > 0) {
       console.log(`[proxy] ${providerId}: ${demoted.length} key(s) demoted, ${probation.length} key(s) on probation (cooldown expired)`)
     }
