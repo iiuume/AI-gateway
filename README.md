@@ -4,7 +4,7 @@
 
 ## 功能与特性
 
-- **统一 API 接口** — 所有 AI 提供商通过 `https://你的域名/v1/` 访问，兼容 OpenAI / Anthropic 协议
+- **统一 API 接口** — 所有 AI 提供商通过 `https://你的域名/v1` 访问，兼容 OpenAI / Anthropic 协议
 - **多 Key 轮询 + 健康检查** — 每个提供商可配置多个 API Key，请求随机打乱；失败 Key 自动降权，连续失败 5 次后进入冷却
 - **Key 自动恢复** — 降权 Key 冷却 5 分钟后自动获得一次试用机会，成功则恢复权重，失败则重新冷却
 - **多提供商管理** — 内置 DeepSeek / OpenAI / Anthropic / Gemini，支持自定义添加
