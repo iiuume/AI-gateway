@@ -24,23 +24,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate wrangler.toml with admin credentials
-        run: |
-          cat > wrangler.toml << EOF
-          name = "ai-gateway"
-          main = "src/index.ts"
-          compatibility_date = "2025-07-01"
-          compatibility_flags = ["nodejs_compat"]
-          keep_vars = true
-
-          [[kv_namespaces]]
-          binding = "KV"
-
-          [vars]
-          ADMIN_USERNAME = “${{ secrets.ADMIN_USERNAME }}”
-          ADMIN_PASSWORD = ”${{ secrets.ADMIN_PASSWORD }}“
-          EOF
-
       - name: Build (dry-run)
         run: npm run build
 
