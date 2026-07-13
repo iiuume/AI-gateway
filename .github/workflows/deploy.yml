@@ -37,8 +37,8 @@ jobs:
           binding = "KV"
 
           [vars]
-          ADMIN_USERNAME = ${{ secrets.ADMIN_USERNAME }}
-          ADMIN_PASSWORD = ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_USERNAME = “${{ secrets.ADMIN_USERNAME }}”
+          ADMIN_PASSWORD = ”${{ secrets.ADMIN_PASSWORD }}“
           EOF
 
       - name: Build (dry-run)
